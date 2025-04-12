@@ -1,0 +1,31 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    
+    <!-- Assembly attributes here (remove if also in AssemblyInfo.cs) -->
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <Copyright>Cyber Crypt Inc.</Copyright>
+    <Product>CyberCrypt</Product>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+  </PropertyGroup>
+
+<ItemGroup>
+  <None Update="Resources\InjectorTemplate.txt">
+    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+  </None>
+</ItemGroup>
+
+<ItemGroup>
+  <PackageReference Include="System.Management" Version="9.0.3" />
+</ItemGroup>
+
+
+
+</Project>
