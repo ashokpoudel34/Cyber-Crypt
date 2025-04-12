@@ -9,7 +9,7 @@ namespace CyberCrypt.Models
     {
         public static void EncryptFile(string inputPath, string outputPath, string keyPath)
         {
-                // Step 1: Convert user-given .exe to raw shellcode
+            // Step 1: Convert user-given .exe to raw shellcode
             string shellcodePath = Path.Combine(Path.GetDirectoryName(outputPath) ?? ".", "temp_shellcode.bin");
             ConvertToShellcode.GenerateShellcode(inputPath, shellcodePath);
             byte[] plaintextBytes = File.ReadAllBytes(shellcodePath);
