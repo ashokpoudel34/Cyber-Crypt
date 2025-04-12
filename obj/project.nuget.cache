@@ -1,14 +1,12 @@
 {
   "version": 2,
-  "dgSpecHash": "+ecuzRW3x0E=",
+  "dgSpecHash": "B+gX298MJ6E=",
   "success": true,
   "projectFilePath": "C:\\Users\\rat_server\\Desktop\\Cyber-Crypt\\CyberCrypt.csproj",
   "expectedPackageFiles": [
+    "C:\\Users\\rat_server\\.nuget\\packages\\microsoft.net.illink.tasks\\8.0.15\\microsoft.net.illink.tasks.8.0.15.nupkg.sha512",
     "C:\\Users\\rat_server\\.nuget\\packages\\system.codedom\\9.0.3\\system.codedom.9.0.3.nupkg.sha512",
-    "C:\\Users\\rat_server\\.nuget\\packages\\system.management\\9.0.3\\system.management.9.0.3.nupkg.sha512",
-    "C:\\Users\\rat_server\\.nuget\\packages\\microsoft.netcore.app.runtime.win-x64\\8.0.15\\microsoft.netcore.app.runtime.win-x64.8.0.15.nupkg.sha512",
-    "C:\\Users\\rat_server\\.nuget\\packages\\microsoft.windowsdesktop.app.runtime.win-x64\\8.0.15\\microsoft.windowsdesktop.app.runtime.win-x64.8.0.15.nupkg.sha512",
-    "C:\\Users\\rat_server\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.win-x64\\8.0.15\\microsoft.aspnetcore.app.runtime.win-x64.8.0.15.nupkg.sha512"
+    "C:\\Users\\rat_server\\.nuget\\packages\\system.management\\9.0.3\\system.management.9.0.3.nupkg.sha512"
   ],
   "logs": []
 }

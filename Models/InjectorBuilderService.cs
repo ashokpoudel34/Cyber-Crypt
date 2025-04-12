@@ -77,7 +77,7 @@ private string ByteArrayToCSharp(byte[] bytes)
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <SelfContained>true</SelfContained>
+    <SelfContained>false</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
   </PropertyGroup>
 </Project>");

