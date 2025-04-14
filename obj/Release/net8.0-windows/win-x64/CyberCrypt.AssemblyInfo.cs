@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyCopyrightAttribute("Cyber Crypt Inc.")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8dba8d7f085bc9bcdbbbbe9c96db02fbb79e49fb")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5429313234038620a5ad1af31e57f4c40b9e0ba4")]
 [assembly: System.Reflection.AssemblyProductAttribute("CyberCrypt")]
 [assembly: System.Reflection.AssemblyTitleAttribute("CyberCrypt")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

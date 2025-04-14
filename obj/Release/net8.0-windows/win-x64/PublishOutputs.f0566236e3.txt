@@ -1,3 +1,8 @@
-C:\Users\rat_server\Desktop\Cyber-Crypt\bin\Release\net8.0-windows\win-x64\publish\CyberCrypt.pdb
-C:\Users\rat_server\Desktop\Cyber-Crypt\bin\Release\net8.0-windows\win-x64\publish\Resources\InjectorTemplate.txt
 C:\Users\rat_server\Desktop\Cyber-Crypt\bin\Release\net8.0-windows\win-x64\publish\CyberCrypt.exe
+C:\Users\rat_server\Desktop\Cyber-Crypt\bin\Release\net8.0-windows\win-x64\publish\Resources\InjectorTemplate.txt
+C:\Users\rat_server\Desktop\Cyber-Crypt\bin\Release\net8.0-windows\win-x64\publish\CyberCrypt.dll
+C:\Users\rat_server\Desktop\Cyber-Crypt\bin\Release\net8.0-windows\win-x64\publish\CyberCrypt.deps.json
+C:\Users\rat_server\Desktop\Cyber-Crypt\bin\Release\net8.0-windows\win-x64\publish\CyberCrypt.runtimeconfig.json
+C:\Users\rat_server\Desktop\Cyber-Crypt\bin\Release\net8.0-windows\win-x64\publish\CyberCrypt.pdb
+C:\Users\rat_server\Desktop\Cyber-Crypt\bin\Release\net8.0-windows\win-x64\publish\System.CodeDom.dll
+C:\Users\rat_server\Desktop\Cyber-Crypt\bin\Release\net8.0-windows\win-x64\publish\System.Management.dll
