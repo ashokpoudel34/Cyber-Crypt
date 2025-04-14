@@ -71,8 +71,8 @@ private string ByteArrayToCSharp(byte[] bytes)
         File.WriteAllText(csPath, sourceCode);
 
         // Modify csproj for single-file, self-contained build
-        string projPath = Path.Combine(projectPath, "TempProject.csproj");
-        File.WriteAllText(projPath, @"<Project Sdk=""Microsoft.NET.Sdk"">
+string projPath = Path.Combine(projectPath, "TempProject.csproj");
+File.WriteAllText(projPath, @"<Project Sdk=""Microsoft.NET.Sdk"">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
@@ -84,7 +84,9 @@ private string ByteArrayToCSharp(byte[] bytes)
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <IncludeAllContentForSelfExtract>false</IncludeAllContentForSelfExtract>
   </PropertyGroup>
+
 </Project>");
+
 
         // Build and publish
         RunCommand("dotnet", $"add package System.Management", projectPath);

